@@ -49,7 +49,7 @@ class Walls: #class only to be called by room function to create walls
             self.EastWall = box(pos=(width,length/2.,height/2.), size = (.01,length,height))
             self.SouthWall = box(pos=(width/2.,length,height/2.), size = (width,.01,height))
             self.WestWall = box(pos=(0,length/2.,height/2.), size = (.01,length,height))
-            self.ObjectList = self.ObjectList+[self.WestWall]
+            self.ObjectList += [self.WestWall]
             
 
 class Furniture:
@@ -61,10 +61,7 @@ class Furniture:
         self.ObjectList = []
         self.Grid_Resolution = 1./12
         self.DragSettings = (False,None,None,False,None,None,None) #inital values for the drag function
-        if Position == []:
-            self.Pos = vector(0,0,Height)
-        else:
-            self.Pos = Position
+        self.Pos = vector(0,0,Height) if Position == [] else Position
         Room.ObjectList = Room.ObjectList + [self]
 
     def drag(self, scene):
@@ -88,7 +85,7 @@ class Furniture:
                     if drag:
                         Drag_Pos = m1.pos #saves initial location
                     picked = False
-                elif m1.press and m1.alt: #If mousebutton is pressed and alt is also
+                elif m1.press: #If mousebutton is pressed and alt is also
                     for part in self.ObjectList:
                         turn = (m1.pick==part) or turn
                     if turn:
@@ -105,7 +102,7 @@ class Furniture:
             #Move object to the new location
             for part in self.ObjectList:
                 part.pos += Move
-        
+
         if turn:
             Turn_End = scene.mouse.pos
             if m1.drop or m1.click:
@@ -229,7 +226,7 @@ def find_corners(*things):
                 p[i] = p[i] + thing.pos
                 #test = sphere(pos = p[i], radius = .1, color = color.blue)
             res.append(p)
-        if thing.__class__.__name__ == 'cylinder':
+        elif thing.__class__.__name__ == 'cylinder':
             if thing.axis.x==0 and thing.axis.y==0:
                 p = []
                 for thing2 in things:

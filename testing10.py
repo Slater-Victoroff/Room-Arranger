@@ -21,7 +21,7 @@ class Colliding:
                     p[i] = rotate(p[i], angle = angle, axis = (0,0,1))
                     p[i] = p[i] + thing.pos
                 res.append(p)
-            if thing.__class__.__name__ == 'cylinder':
+            elif thing.__class__.__name__ == 'cylinder':
                 if thing.axis.x==0 and thing.axis.y==0:
                     p = []
                     for thing2 in things:
@@ -88,7 +88,10 @@ class Colliding:
                     if thing2.__class__.__name__ == 'box':
                         center2 = thing2.pos.z
                         dist2 = abs(.5*thing2.size.z)
-                    if thing2.__class__.__name__ == 'cylinder' and thing2.axis.x == 0 and thing1.axis.y == 0:
+                    if (
+                        thing2.__class__.__name__ == 'cylinder'
+                        and thing2.axis.x == 0
+                    ):
                         dist2 = abs(.5*thing2.length)
                         center2 = thing2.pos.z + (dist2 * (thing2.axis.z/abs(thing2.axis.z)))
                     if center1+dist1-.01 > center2-dist2 and center1-dist1+.01 < center2+dist2: #If the two vertical spans are not disjoint
@@ -120,11 +123,10 @@ class Colliding:
         return False
 
     def collide_with_room(self,thing, room):
-        for other_thing in room.ObjectList:
-            if other_thing != thing:
-                if self.are_colliding(thing,other_thing):
-                    return True
-        return False
+        return any(
+            other_thing != thing and self.are_colliding(thing, other_thing)
+            for other_thing in room.ObjectList
+        )
 
 class Room(object):
     def __init__(self,width=15,height=10,length=12,ambient=0.2,lights=[0.5*norm(vector(0,0,-2)),0.25*norm(vector(0,0.5,2))],autoscale=False,walls=True):
@@ -186,9 +188,9 @@ class Room(object):
     def snap_to_view(self,k):
         if k == 'x':
             self.Display.forward = vector(1,0,0)
-        if k == 'y':
+        elif k == 'y':
             self.Display.forward = vector(0,1,0)
-        if k == 'z':
+        elif k == 'z':
             self.Display.forward = vector(0,0,-1)
 
 
@@ -202,7 +204,13 @@ class Walls: #class only to be called by room function to create walls
             self.EastWall = box(pos=(width,length/2.,height/2.), axis=(1,0,0), size = (.01,length,height),material=materials.wood)
             self.SouthWall = box(pos=(width/2.,length,height/2.), axis=(1,0,0), size = (width,.01,height),material=materials.wood)
             self.WestWall = box(pos=(0,length/2.,height/2.), axis=(1,0,0),size = (.01,length,height),material=materials.wood)
-            self.ObjectList = self.ObjectList + [self.Ceiling,self.NorthWall,self.EastWall,self.SouthWall,self.WestWall]
+            self.ObjectList += [
+                self.Ceiling,
+                self.NorthWall,
+                self.EastWall,
+                self.SouthWall,
+                self.WestWall,
+            ]
 
 
 class DormRoom(Room):
@@ -247,10 +255,7 @@ class Furniture:
         self.Grid_Resolution = 1./6
         self.DragSettings = (False,None,None,False,None,None,None) #inital values for the drag function
         self.Collide = Colliding()
-        if Position == []:
-            self.Pos = vector(0,0,Height)
-        else:
-            self.Pos = Position
+        self.Pos = vector(0,0,Height) if Position == [] else Position
         Room.ObjectList = Room.ObjectList + [self]
 
     def drag(self, room, m):
@@ -267,7 +272,7 @@ class Furniture:
             if drag:
                 Drag_Pos = m1.pos #saves initial location
             picked = False
-        elif m1.press and m1.alt: #If mousebutton is pressed and alt is also
+        elif m1.press: #If mousebutton is pressed and alt is also
             for part in self.ObjectList:
                 turn = (m1.pick==part) or turn
             if turn:
@@ -287,7 +292,7 @@ class Furniture:
             '''if self.Collide.collide_with_room(self, room):
                 for part in self.ObjectList:
                     part.pos -= Move'''
-        
+
         if turn:
             Turn_End = scene.mouse.pos
             if m1.drop or m1.click:
@@ -388,10 +393,7 @@ class BookShelf(Furniture):
     def __init__(self, Room, Width, Length, Height, Shelf_Number, Wood_Thickness,\
                  Position = [], Wood_Color = (255, 0, 0)):
         Furniture.__init__(self, Room, Width, Length, Height, Position)
-        if Position == []:
-            self.Pos = vector(0,0,0)
-        else:
-             self.Pos = Position
+        self.Pos = vector(0,0,0) if Position == [] else Position
         self.Wood_Thickness = Wood_Thickness
         self.Shelf_Number = Shelf_Number
         self.Wood_Color = Wood_Color
@@ -409,7 +411,7 @@ class BookShelf(Furniture):
                          material = materials.wood)
         self.ObjectList = [self.Backing, self.Left_Wall, self.Right_Wall]
         self.Shelf_Increment = self.Height/float(self.Shelf_Number)
-        for step in range(0,Shelf_Number):
+        for step in range(Shelf_Number):
             self.ObjectList.append(box(pos = self.Pos + vector(0, Length/2.,\
                                     step*self.Shelf_Increment), size = (self.Width, \
                                     self.Length, self.Wood_Thickness), color = self.Wood_Color,\
@@ -422,10 +424,7 @@ class Closet(BookShelf):
                            Position, Wood_Color)
         self.Open = Open
         self.Hanger_Radius = Hanger_Radius
-        if Hanger_Height == None:
-            self.Hanger_Height = Height*0.8
-        else:
-            self.Hanger_Height = Hanger_Height
+        self.Hanger_Height = Height*0.8 if Hanger_Height is None else Hanger_Height
         self.Top_Pos = vector(0, Length/2., self.Height)
         self.Top = box(pos = self.Top_Pos, size = (self.Width, self.Length, self.Wood_Thickness),
                        color = self.Wood_Color, material = materials.wood)
@@ -433,11 +432,11 @@ class Closet(BookShelf):
             self.Left_Front_Pos = (self.Width/4., 0, self.Height/2.)
             self.Right_Front_Pos = (-self.Width/4., 0, self.Height/2.)
             self.Front_Size = (self.Width/2., self.Wood_Thickness, self.Height)
-        elif self.Open:
+        else:
             self.Left_Front_Pos = (self.Width/2., -self.Width/4., self.Height/2.)
             self.Right_Front_Pos = (-self.Width/2., -self.Width/4., self.Height/2.)
             self.Front_Size = (self.Wood_Thickness, self.Width/2., self.Height)
-            
+
         self.Left_Front = box(pos= self.Left_Front_Pos, size = self.Front_Size,
                               color = self.Wood_Color, material = materials.wood)
         self.Right_Front = box(pos = self.Right_Front_Pos, size= self.Front_Size,
@@ -511,7 +510,7 @@ class Handle(Furniture):
         self.Strut_Axis = vector(0,0,0)
         self.Main_Axis = vector(0,0,0)
         self.Handle_Pos = vector(0,0,0)
-        for i in range(0, 3):
+        for i in range(3):
             if self.Strut_Orientation[i] != 0:
                 self.Clearance_Offset[i] = -self.Strut_Orientation[i]*self.Clearance
                 self.Strut_Axis[i] = self.Strut_Orientation[i]*self.Clearance

@@ -23,7 +23,13 @@ class Room(object):
             self.EastWall = box(pos=(width,length/2.,height/2.), axis=(1,0,0), size = (.01,length,height))
             self.SouthWall = box(pos=(width/2.,length,height/2.), axis=(1,0,0), size = (width,.01,height))
             self.WestWall = box(pos=(0,length/2.,height/2.), axis=(1,0,0),size = (.01,length,height))
-            self.ObjectList = self.ObjectList + [self.Ceiling,self.NorthWall,self.EastWall,self.SouthWall,self.WestWall]
+            self.ObjectList += [
+                self.Ceiling,
+                self.NorthWall,
+                self.EastWall,
+                self.SouthWall,
+                self.WestWall,
+            ]
     def walls_view(self):
         if self.Display.forward.x>.01:
             self.WestWall.visible = False
@@ -86,16 +92,13 @@ class Furniture:
         self.ObjectList = []
         self.Grid_Resolution = 1./12
         self.DragSettings = (False,None,None,False,None,None,None) #inital values for the drag function
-        if Position == []:
-            self.Pos = vector(0,0,Height)
-        else:
-            self.Pos = Position
+        self.Pos = vector(0,0,Height) if Position == [] else Position
         Room.ObjectList = Room.ObjectList + [self]
 
     def drag(self, scene):
 
         drag, New_Pos, Drag_Pos, turn, Turn_Start, Turn_End, m1 = self.DragSettings
-        
+
         if scene.mouse.events: #If something with the mouse happens
             m1 = scene.mouse.getevent() #Figure out what happened
             if m1.press  and not m1.alt: #If mousebutton is pressed and alt is not
@@ -104,7 +107,7 @@ class Furniture:
                     drag = (m1.pick == part) or drag
                 if drag:
                     Drag_Pos = m1.pos #saves initial location
-            elif m1.press and m1.alt: #If mousebutton is pressed and alt is also
+            elif m1.press: #If mousebutton is pressed and alt is also
                 for part in self.ObjectList:
                     turn = (m1.pick==part) or turn
                 if turn:
@@ -121,7 +124,7 @@ class Furniture:
                                   self.ObjectList[0].pos.z- Grid_Z*self.Grid_Resolution,)
                 for part in self.ObjectList:
                     part.pos -= Move_Pos
-                
+
         if drag:
             New_Pos = scene.mouse.pos
             if m1.drop:
@@ -132,7 +135,7 @@ class Furniture:
             #Move object to the new location
             for part in self.ObjectList:
                 part.pos += Move
-        
+
         if turn:
             Turn_End = scene.mouse.pos
             if m1.drop:
@@ -244,10 +247,7 @@ class BookShelf(Furniture):
     def __init__(self, Width, Length, Height, Shelf_Number, Wood_Thickness,\
                  Position = [], Wood_Color = (255, 0, 0)):
         Furniture.__init__(self, Width, Length, Height, Position)
-        if Position == []:
-            self.Pos = vector(0,0,0)
-        else:
-             self.Pos = Position
+        self.Pos = vector(0,0,0) if Position == [] else Position
         self.Wood_Thickness = Wood_Thickness
         self.Shelf_Number = Shelf_Number
         self.Wood_Color = Wood_Color
@@ -265,7 +265,7 @@ class BookShelf(Furniture):
                          material = materials.wood)
         self.ObjectList = [self.Backing, self.Left_Wall, self.Right_Wall]
         self.Shelf_Increment = self.Height/float(self.Shelf_Number)
-        for step in range(0,Shelf_Number):
+        for step in range(Shelf_Number):
             self.ObjectList.append(box(pos = self.Pos + vector(0, Length/2.,\
                                     step*self.Shelf_Increment), size = (self.Width, \
                                     self.Length, self.Wood_Thickness), color = self.Wood_Color,\
@@ -278,10 +278,7 @@ class Closet(BookShelf):
                            Position, Wood_Color)
         self.Open = Open
         self.Hanger_Radius = Hanger_Radius
-        if Hanger_Height == None:
-            self.Hanger_Height = Height*0.8
-        else:
-            self.Hanger_Height = Hanger_Height
+        self.Hanger_Height = Height*0.8 if Hanger_Height is None else Hanger_Height
         self.Top_Pos = vector(0, Length/2., self.Height)
         self.Top = box(pos = self.Top_Pos, size = (self.Width, self.Length, self.Wood_Thickness),
                        color = self.Wood_Color, material = materials.wood)
@@ -289,11 +286,11 @@ class Closet(BookShelf):
             self.Left_Front_Pos = (self.Width/4., 0, self.Height/2.)
             self.Right_Front_Pos = (-self.Width/4., 0, self.Height/2.)
             self.Front_Size = (self.Width/2., self.Wood_Thickness, self.Height)
-        elif self.Open:
+        else:
             self.Left_Front_Pos = (self.Width/2., -self.Width/4., self.Height/2.)
             self.Right_Front_Pos = (-self.Width/2., -self.Width/4., self.Height/2.)
             self.Front_Size = (self.Wood_Thickness, self.Width/2., self.Height)
-            
+
         self.Left_Front = box(pos= self.Left_Front_Pos, size = self.Front_Size,
                               color = self.Wood_Color, material = materials.wood)
         self.Right_Front = box(pos = self.Right_Front_Pos, size= self.Front_Size,

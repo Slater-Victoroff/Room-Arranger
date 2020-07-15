@@ -21,7 +21,7 @@ class Colliding: #Nothing in here but has_intersect_z is actually used
                     p[i] = rotate(p[i], angle = angle, axis = (0,0,1))
                     p[i] = p[i] + thing.pos
                 res.append(p)
-            if thing.__class__.__name__ == 'cylinder':
+            elif thing.__class__.__name__ == 'cylinder':
                 if thing.axis.x==0 and thing.axis.y==0:
                     p = []
                     for thing2 in things:
@@ -131,11 +131,10 @@ class Colliding: #Nothing in here but has_intersect_z is actually used
         return False
 
     def collide_with_room(self,thing, room):
-        for other_thing in room.ObjectList:
-            if other_thing != thing:
-                if self.are_colliding(thing,other_thing):
-                    return True
-        return False
+        return any(
+            other_thing != thing and self.are_colliding(thing, other_thing)
+            for other_thing in room.ObjectList
+        )
 
 class Room(object):
     def __init__(self,width=14.5,height=10,length=20,ambient=0.2,lights=[0.5*norm(vector(0,0,-2)),0.25*norm(vector(0,0.5,2))],autoscale=False,walls=True):
@@ -237,20 +236,22 @@ class Room(object):
     def snap_to_view(self,k):
         if k == '1':
             self.Display.forward = vector(1,0,0)
-        if k == '2':
+        elif k == '2':
             self.Display.forward = vector(0,1,0)
-        if k == '3':
+        elif k == '3':
             self.Display.forward = vector(-1,0,0)
-        if k == '4':
+        elif k == '4':
             self.Display.forward = vector(0,-1,0)
-        if k == '5':
+        elif k == '5':
             self.Display.forward = vector(0,.01,-1)
 
     def rotate_view(self,k):
         if k=='up':
-            if abs(self.Display.forward.norm().x) < .1 and abs(self.Display.forward.norm().y) < 0.1 and self.Display.forward.norm().z<0:
-                pass
-            else:
+            if (
+                abs(self.Display.forward.norm().x) >= 0.1
+                or abs(self.Display.forward.norm().y) >= 0.1
+                or self.Display.forward.norm().z >= 0
+            ):
                 axis = cross(self.Display.forward,self.Display.up)
                 self.Display.forward = rotate(self.Display.forward, angle = -.1,axis = axis)
         elif k =='down':
@@ -274,7 +275,13 @@ class Walls: #class only to be called by room function to create walls
             self.EastWall = box(pos=(width,length/2.,height/2.), axis=(1,0,0), size = (self.WallThickness,length,height))
             self.SouthWall = box(pos=(width/2.,length,height/2.), axis=(1,0,0), size = (width,self.WallThickness,height))
             self.WestWall = box(pos=(0,length/2.,height/2.), axis=(1,0,0),size = (self.WallThickness,length,height))
-            self.ObjectList = self.ObjectList + [self.Ceiling,self.NorthWall,self.EastWall,self.SouthWall,self.WestWall]
+            self.ObjectList += [
+                self.Ceiling,
+                self.NorthWall,
+                self.EastWall,
+                self.SouthWall,
+                self.WestWall,
+            ]
 
 
 class RightDormRoom(Room):
@@ -355,10 +362,7 @@ class Furniture:
         self.DragSettings = (False,None,None,False,None,None,None) #inital values for the drag function
         self.Collide = Colliding()
         self.Selected = False
-        if Position == []:
-            self.Pos = vector(0,0,Height)
-        else:
-            self.Pos = Position
+        self.Pos = vector(0,0,Height) if Position == [] else Position
         Room.ObjectList = Room.ObjectList + [self]
 
     def gravity(self, floor):
@@ -376,14 +380,14 @@ class Furniture:
     
 
     def move(self,k):
-        if k=='up':
-                self.Container.pos -= vector(0,1./3,0)
-        if k=='down':
-                self.Container.pos += vector(0,1./3,0)
-        if k=='left':
-                self.Container.pos += vector(1./3,0,0)
-        if k=='right':
-                self.Container.pos -= vector(1./3,0,0)
+        if k == 'down':
+            self.Container.pos += vector(0,1./3,0)
+        elif k == 'left':
+            self.Container.pos += vector(1./3,0,0)
+        elif k == 'right':
+            self.Container.pos -= vector(1./3,0,0)
+        elif k == 'up':
+            self.Container.pos -= vector(0,1./3,0)
 
     def drag(self, room, m):
         drag, New_Pos, Drag_Pos, turn, Turn_Start, Turn_End, m1 = self.DragSettings
@@ -400,7 +404,7 @@ class Furniture:
                 if drag:
                     Drag_Pos = m1.pos #saves initial location
                 picked = False
-            elif m1.press and m1.alt: #If mousebutton is pressed and alt is also
+            elif m1.press: #If mousebutton is pressed and alt is also
                 for part in self.ObjectList:
                     turn = (m1.pick==part) or turn
                 if turn:
@@ -424,7 +428,7 @@ class Furniture:
             '''if self.Collide.collide_with_room(self, room):
                 for part in self.ObjectList:
                     part.pos -= Move'''
-        
+
         if turn:
             Turn_End = scene.mouse.pos
             try:
@@ -500,10 +504,7 @@ class BookShelf(Furniture):
     def __init__(self, Room, Width = 2.5, Length=1.25, Height=2.25, Material=materials.earth, Shelf_Number=2, Wood_Thickness = 0.0583,\
                  Position = [], Wood_Color = (1,.9,.5)):
         Furniture.__init__(self, Room, Width, Length, Height, Position)
-        if Position == []:
-            self.Pos = vector(0,0,0)
-        else:
-             self.Pos = Position
+        self.Pos = vector(0,0,0) if Position == [] else Position
         self.Material=Material
         self.Wood_Thickness = Wood_Thickness
         self.Shelf_Number = Shelf_Number
@@ -526,7 +527,7 @@ class BookShelf(Furniture):
                                     material = self.Material, frame = self.Container)
         self.ObjectList = [self.Backing, self.Left_Wall, self.Bottom,self.Right_Wall]
         self.Shelf_Increment = self.Height/float(self.Shelf_Number)
-        for step in range(0,Shelf_Number):
+        for step in range(Shelf_Number):
             self.ObjectList.append(box(pos = self.Pos + vector(0, Length/2.,\
                                     (step+1)*(self.Shelf_Increment)), size = (self.Width, \
                                     self.Length, self.Wood_Thickness*2.5), color = self.Wood_Color,\
@@ -541,10 +542,7 @@ class Closet(BookShelf):
         self.Open = Open
         self.Material=Material
         self.Hanger_Radius = Hanger_Radius
-        if Hanger_Height == None:
-            self.Hanger_Height = Height*0.8
-        else:
-            self.Hanger_Height = Hanger_Height
+        self.Hanger_Height = Height*0.8 if Hanger_Height is None else Hanger_Height
         self.Top_Pos = vector(0, Length/2., self.Height)
         self.Top = box(pos = self.Top_Pos, size = (self.Width, self.Length, self.Wood_Thickness),
                        color = self.Wood_Color, material = self.Material, frame = self.Container)
@@ -552,11 +550,11 @@ class Closet(BookShelf):
             self.Left_Front_Pos = (self.Width/4., 0, self.Height/2.)
             self.Right_Front_Pos = (-self.Width/4., 0, self.Height/2.)
             self.Front_Size = (self.Width/2., self.Wood_Thickness, self.Height)
-        elif self.Open:
+        else:
             self.Left_Front_Pos = (self.Width/2., -self.Width/4., self.Height/2.)
             self.Right_Front_Pos = (-self.Width/2., -self.Width/4., self.Height/2.)
             self.Front_Size = (self.Wood_Thickness, self.Width/2., self.Height)
-            
+
         self.Left_Front = box(pos= self.Left_Front_Pos, size = self.Front_Size,
                               color = self.Wood_Color, material = self.Material,
                               frame = self.Container)
@@ -828,7 +826,7 @@ class Olin_Chair(Furniture):
         self.X_Scale = Ending_Leg_Width/Starting_Leg_Width
         self.Y_Scale = Ending_Leg_Height/Starting_Leg_Height
         self.Leg_Angle = (2*math.pi)/self.Number_Of_Legs
-    
+
         self.Spindle_Bottom = cylinder(pos = (0,0,0), axis = (0,0,self.Spindle_Bottom_Height),
                                        radius = self.Spindle_Bottom_Radius,
                                        material = materials.plastic,
@@ -867,21 +865,21 @@ class Olin_Chair(Furniture):
 
         self.Remainder_Width = ((math.sqrt((self.Inner_Seat_Bulge_Length)**2-
                                                                    (self.Inner_Seat_Hmax-(self.Inner_Seat_Hmin/2))**2)))
-                                                          
+
         self.Inner_Seat_Rectangle2 = shapes.rectangle(width = (self.Inner_Seat_Hmax-self.Inner_Seat_Hmin),
                                                       height = (self.Inner_Seat_Length - self.Remainder_Width),
                                                       pos = ((self.Inner_Seat_Hmin/2.)+((self.Inner_Seat_Hmax-self.Inner_Seat_Hmin)/2)
                                                              , -(self.Remainder_Width/2.)))
-        
+
         self.Rectangle_Width = (self.Inner_Seat_Hmax-self.Inner_Seat_Hmin)
-        
+
         self.Rectangle_Height = (self.Inner_Seat_Length - self.Remainder_Width)
 
         self.Radius_Numerator = sqrt(self.Rectangle_Width**2+self.Rectangle_Height**2)
-        
+
         self.Big_Circle_Radius = self.Radius_Numerator/(math.cos((math.pi/2)-math.atan(self.Rectangle_Height/
                                                                                        self.Rectangle_Width)))
-        
+
         self.Inner_Seat_Circle2 = shapes.circle(pos = ((self.Big_Circle_Radius),0),
                                                 radius = self.Big_Circle_Radius)
 
@@ -904,11 +902,11 @@ class Olin_Chair(Furniture):
                           (self.Back_Seat_Width/2, 13*self.Back_Seat_Height/math.pi, 2.75*self.Spindle_Height)]
 
         self.Back = extrusion(shape = self.Back_Shape, pos = self.Back_Path, frame = self.Container, material = materials.wood)
-                                 
+
         self.ObjectList = [self.Spindle_Bottom, self.Spindle_Middle, self.Spindle_Top,self.BoundingBoxBottom,
                            self.Inner_Seat]
 
-        for x in range(0,2):
+        for x in range(2):
             if x == 0:
                 multiplier = 1
             elif x == 1:
@@ -935,9 +933,9 @@ class Olin_Chair(Furniture):
                                                  height = self. Arm_Rest_Length)
             self.ObjectList.append(extrusion(pos = [(Next_Origin), (Next_Origin + vector(0,0, Arm_Rest_Thickness))],
                                              shape = self.Arm_Rest_Shape, frame = self.Container))
-                           
 
-        
+
+
         Leg_Circle = shapes.circle(radius = self.Starting_Leg_Width/2.)
         Leg_Square = shapes.rectangle(width = self.Starting_Leg_Width,
                                       height = self.Starting_Leg_Height)
@@ -956,17 +954,17 @@ class Olin_Chair(Furniture):
             self.ObjectList.append(sphere(pos = Leg_End_Point, radius = self.Starting_Leg_Width/2.,
                                     material = materials.rough, color = (255,0,255),
                                     frame = self.Container))
-            
+
             Wheel_Housing_Shape = shapes.arc(radius = (self.Wheel_Radius+ self.Wheel_Margin),
                                              angle1 = 0, angle2 = 2*pi)
-            
+
             Wheel_Offset = vector((self.Wheel_Width/2.)*(math.sin((i*self.Leg_Angle)-(math.pi/2))),
                                   (self.Wheel_Width/2.)*(math.cos((i*self.Leg_Angle)-(math.pi/2))),)
-            
+
             Wheel_Housing_Drop = vector(0,0,-self.Starting_Leg_Height)
 
             Wheel_Drop = vector(0,0,-self.Starting_Leg_Height - self.Wheel_Margin)
-            
+
             self.ObjectList.append(extrusion(pos = [(Leg_End_Point-Wheel_Offset+Wheel_Housing_Drop),
                                                        (Leg_End_Point+Wheel_Offset+Wheel_Housing_Drop)],
                                                 shape = Wheel_Housing_Shape, frame = self.Container))
